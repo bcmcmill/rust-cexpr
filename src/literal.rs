@@ -88,9 +88,7 @@ impl std::convert::Into<Vec<u8>> for CChar {
 }
 
 /// ensures the child parser consumes the whole input
-pub fn full<I: Clone, O, F>(
-    f: F,
-) -> impl Fn(I) -> nom::IResult<I, O>
+pub fn full<I: Clone, O, F>(f: F) -> impl Fn(I) -> nom::IResult<I, O>
 where
     I: nom::InputLength,
     F: Fn(I) -> nom::IResult<I, O>,
@@ -102,7 +100,10 @@ where
                 if i.input_len() == 0 {
                     Ok((i, o))
                 } else {
-                    Err(nom::Err::Error(nom::error::Error::new(i, nom::error::ErrorKind::Complete)))
+                    Err(nom::Err::Error(nom::error::Error::new(
+                        i,
+                        nom::error::ErrorKind::Complete,
+                    )))
                 }
             }
             r => r,
@@ -224,7 +225,7 @@ fn c_string(i: &[u8]) -> nom::IResult<&[u8], Vec<u8>> {
                 map(escaped_char, |c: CChar| c.into()),
                 map(is_not([b'\\', b'"']), |c: &[u8]| c.into()),
             )),
-            Vec::new(),
+            || Vec::new(),
             |mut v: Vec<u8>, res: Vec<u8>| {
                 v.extend_from_slice(&res);
                 v
@@ -272,7 +273,12 @@ fn c_int(i: &[u8]) -> nom::IResult<&[u8], i64> {
                     c_int_radix(v, 8)
                 }),
                 map_opt(many1(complete(decimal)), |v| c_int_radix(v, 10)),
-                |input| Err(crate::nom::Err::Error(nom::error::Error::new(input, crate::nom::ErrorKind::Fix))),
+                |input| {
+                    Err(crate::nom::Err::Error(nom::error::Error::new(
+                        input,
+                        crate::nom::ErrorKind::Fix,
+                    )))
+                },
             )),
             opt(take_ul),
         ),
